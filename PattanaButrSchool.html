@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการโรงเรียนพัฒนาบุตร</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .sidebar-gradient {
+            background: linear-gradient(180deg, #065f46 0%, #059669 100%);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #059669; }
+
+        /* Print Styling */
+        @media print {
+            @page { margin: 0; size: auto; }
+            body * {
+                visibility: hidden;
+            }
+            #receipt-print-area, #receipt-print-area * {
+                visibility: visible;
+            }
+            #receipt-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background: white;
+                z-index: 9999;
+                padding: 40px;
+                display: block !important;
+            }
+            /* Hide non-printable elements */
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen flex overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 sidebar-gradient text-white flex flex-col shadow-xl z-20 transition-all duration-300 no-print" id="sidebar">
+        <div class="p-6 flex items-center gap-3 border-b border-green-500/30">
+            <div class="bg-white/20 p-2 rounded-lg">
+                <i data-lucide="graduation-cap" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">โรงเรียนพัฒนาบุตร</h1>
+                <p class="text-xs text-green-200">ระบบจัดการภายใน</p>
+            </div>
+        </div>
+
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <button onclick="showPage('dashboard')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-all bg-white/20 font-medium">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i> ภาพรวม
+            </button>
+            <button onclick="showPage('students')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-all text-green-100">
+                <i data-lucide="users" class="w-5 h-5"></i> ทะเบียนนักเรียน
+            </button>
+            <div class="pt-4 pb-2 px-4 text-xs font-semibold text-green-300 uppercase tracking-wider">แผนกการเงิน</div>
+            <button onclick="showPage('tuition')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-all text-green-100">
+                <i data-lucide="banknote" class="w-5 h-5"></i> แผนกค่าเทอม
+            </button>
+            <button onclick="showPage('food')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-all text-green-100">
+                <i data-lucide="utensils" class="w-5 h-5"></i> แผนกอาหาร
+            </button>
+            <button onclick="showPage('materials')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-all text-green-100">
+                <i data-lucide="package" class="w-5 h-5"></i> แผนกวัสดุ
+            </button>
+            <div class="pt-4 pb-2 px-4 text-xs font-semibold text-green-300 uppercase tracking-wider">รายงาน</div>
+            <button onclick="showPage('reports')" class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10 flex items-center gap-3 transition-all text-green-100">
+                <i data-lucide="file-bar-chart" class="w-5 h-5"></i> รายงานการเงิน
+            </button>
+        </nav>
+
+        <!-- Sidebar Footer: System Tools -->
+        <div class="p-4 border-t border-green-500/30 space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="backupData()" class="text-xs bg-green-800/50 hover:bg-green-800 text-green-100 hover:text-white py-2 rounded flex flex-col items-center gap-1 transition">
+                    <i data-lucide="download" class="w-4 h-4"></i> สำรองข้อมูล
+                </button>
+                <button onclick="document.getElementById('restoreInput').click()" class="text-xs bg-green-800/50 hover:bg-green-800 text-green-100 hover:text-white py-2 rounded flex flex-col items-center gap-1 transition">
+                    <i data-lucide="upload" class="w-4 h-4"></i> กู้คืนข้อมูล
+                </button>
+            </div>
+            <input type="file" id="restoreInput" accept=".json" class="hidden" onchange="restoreData(this)">
+            
+            <button onclick="resetSystem()" class="w-full text-xs text-red-300 hover:text-red-100 flex items-center justify-center gap-2 pt-2 border-t border-green-500/30">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> ล้างข้อมูล/รีเซ็ตระบบ
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto bg-slate-50 relative no-print-container">
+        <!-- Header Mobile -->
+        <header class="bg-white shadow-sm sticky top-0 z-10 p-4 flex justify-between items-center md:hidden no-print">
+            <span class="font-bold text-green-800">พัฒนาบุตร System</span>
+            <button class="text-gray-600"><i data-lucide="menu"></i></button>
+        </header>
+
+        <div class="p-6 max-w-7xl mx-auto space-y-6 no-print">
+
+            <!-- PAGE: Dashboard -->
+            <div id="page-dashboard" class="page-section animate-fade-in">
+                <h2 class="text-2xl font-bold text-green-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="activity" class="text-green-600"></i> ภาพรวมระบบ
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500 hover:shadow-md transition">
+                        <div class="text-gray-500 text-sm mb-1">นักเรียนทั้งหมด</div>
+                        <div class="text-3xl font-bold text-gray-800" id="dash-student-count">0</div>
+                        <div class="text-xs text-green-600 mt-2">คน</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-emerald-500 hover:shadow-md transition">
+                        <div class="text-gray-500 text-sm mb-1">รายรับค่าเทอม</div>
+                        <div class="text-3xl font-bold text-emerald-600" id="dash-tuition-total">฿0</div>
+                        <div class="text-xs text-emerald-600 mt-2">บาท (ปีการศึกษานี้)</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-teal-500 hover:shadow-md transition">
+                        <div class="text-gray-500 text-sm mb-1">อาหารและค่าเช่า</div>
+                        <div class="text-3xl font-bold text-teal-600" id="dash-food-total">฿0</div>
+                        <div class="text-xs text-teal-600 mt-2">บาท (รวมสะสม)</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-purple-500 hover:shadow-md transition">
+                        <div class="text-gray-500 text-sm mb-1">งบวัสดุคงเหลือ (สุทธิ)</div>
+                        <div class="text-3xl font-bold text-purple-600" id="dash-material-balance">฿0</div>
+                        <div class="text-xs text-purple-600 mt-2">บาท (รายรับ - รายจ่าย)</div>
+                    </div>
+                </div>
+
+                <!-- Charts Area -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <h3 class="font-semibold text-gray-700 mb-4">สัดส่วนรายได้แยกตามแผนก</h3>
+                        <canvas id="incomeChart" height="250"></canvas>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <h3 class="font-semibold text-gray-700 mb-4">ธุรกรรมล่าสุด</h3>
+                        <div class="overflow-hidden">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-gray-50 text-gray-500">
+                                    <tr>
+                                        <th class="p-3 rounded-tl-lg">รายการ</th>
+                                        <th class="p-3">แผนก</th>
+                                        <th class="p-3 text-right rounded-tr-lg">จำนวนเงิน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-recent-tx" class="divide-y divide-gray-100">
+                                    <!-- JS render -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: Students -->
+            <div id="page-students" class="page-section hidden">
+                <h2 class="text-2xl font-bold text-green-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="users" class="text-green-600"></i> ทะเบียนนักเรียน
+                </h2>
+
+                <!-- New: CSV Import Section -->
+                <div class="flex justify-end gap-2 mb-4">
+                    <button onclick="downloadCSVTemplate()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-sm font-medium">
+                        <i data-lucide="download" class="w-4 h-4"></i> โหลดแบบฟอร์มตัวอย่าง
+                    </button>
+                    <input type="file" id="csvInput" accept=".csv" class="hidden" onchange="handleCSVUpload(this)">
+                    <button onclick="document.getElementById('csvInput').click()" class="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition text-sm font-medium shadow-sm">
+                        <i data-lucide="upload" class="w-4 h-4"></i> นำเข้าไฟล์ CSV
+                    </button>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
+                    <h3 class="font-semibold text-gray-700 mb-4 border-b pb-2">เพิ่มนักเรียนใหม่ (รายคน)</h3>
+                    <form onsubmit="addStudent(event)" class="flex flex-wrap gap-4 items-end">
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">รหัสนักเรียน <span class="text-red-500">*</span></label>
+                            <input type="text" id="std-id" placeholder="เช่น 66001" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none" required>
+                        </div>
+                        <div class="flex-[2] min-w-[250px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+                            <input type="text" id="std-name" placeholder="ชื่อ นามสกุล" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none" required>
+                        </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ระดับชั้น</label>
+                            <select id="std-class" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-green-500 outline-none">
+                                <option>ม.1</option> <option>ม.2</option> <option>ม.3</option>
+                                <option>ม.4</option> <option>ม.5</option> <option>ม.6</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition shadow-lg shadow-green-600/30">
+                            บันทึก
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 border-b bg-gray-50 font-semibold text-gray-700">รายชื่อนักเรียนทั้งหมด</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-600 text-sm uppercase">
+                                    <th class="p-4 border-b">รหัส</th>
+                                    <th class="p-4 border-b">ชื่อ-นามสกุล</th>
+                                    <th class="p-4 border-b">ระดับชั้น</th>
+                                    <th class="p-4 border-b text-center">สถานะ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="student-list-body" class="divide-y divide-gray-100">
+                                <!-- Rendered via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: Tuition -->
+            <div id="page-tuition" class="page-section hidden">
+                <h2 class="text-2xl font-bold text-green-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="banknote" class="text-green-600"></i> แผนกค่าเทอม
+                </h2>
+                
+                <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
+                    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                         <div>
+                            <h3 class="font-semibold text-gray-700">ตารางสถานะการชำระเงิน</h3>
+                            <div class="text-sm text-gray-500 mt-1">ค่าเทอมมาตรฐาน: <span class="font-bold text-green-600">15,000 บาท</span></div>
+                         </div>
+                         
+                         <!-- Search Box Added -->
+                         <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                            <input type="text" id="tuition-search" onkeyup="renderTuitionTable()" placeholder="ค้นหาชื่อ หรือ รหัสนักเรียน..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none w-64 shadow-sm transition">
+                         </div>
+                    </div>
+                   
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-emerald-50 text-emerald-800 font-semibold">
+                                <tr>
+                                    <th class="p-3 border-b border-r">รหัสนักเรียน</th>
+                                    <th class="p-3 border-b border-r">ชื่อ-นามสกุล</th>
+                                    <th class="p-3 border-b border-r text-right">ยอดที่ต้องชำระ</th>
+                                    <th class="p-3 border-b border-r text-right">ชำระแล้ว</th>
+                                    <th class="p-3 border-b border-r text-right">คงเหลือ</th>
+                                    <th class="p-3 border-b text-center">ดำเนินการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tuition-table-body" class="bg-white divide-y divide-gray-100">
+                                <!-- JS Render -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: Food -->
+            <div id="page-food" class="page-section hidden">
+                <h2 class="text-2xl font-bold text-green-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="utensils" class="text-green-600"></i> แผนกอาหาร
+                </h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left: Vendor Mgmt -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Rental Fee Section (New) -->
+                        <div class="bg-white p-5 rounded-xl shadow-sm border-t-4 border-orange-400">
+                            <h3 class="font-semibold text-gray-700 mb-3">เก็บค่าเช่าที่ (รายเดือน)</h3>
+                            <form onsubmit="addRentalTransaction(event)" class="space-y-3">
+                                <select id="rent-vendor-select" class="w-full border rounded-lg p-2 text-sm outline-none bg-gray-50 focus:ring-1 focus:ring-orange-400" required>
+                                    <option value="">เลือกร้านค้า...</option>
+                                </select>
+                                <div class="flex gap-2">
+                                     <input type="month" id="rent-month" class="flex-1 border rounded-lg p-2 text-sm outline-none focus:ring-1 focus:ring-orange-400" required>
+                                     <input type="number" id="rent-amount" placeholder="บาท" class="w-24 border rounded-lg p-2 text-sm outline-none focus:ring-1 focus:ring-orange-400" required min="0">
+                                </div>
+                                <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg text-sm transition shadow-sm">
+                                    <i data-lucide="wallet" class="inline w-4 h-4 mr-1"></i> บันทึกรับเงินค่าเช่า
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-xl shadow-sm">
+                            <h3 class="font-semibold text-gray-700 mb-3">เพิ่มผู้ค้า (Vendor)</h3>
+                            <form onsubmit="addVendor(event)" class="space-y-3">
+                                <input type="text" id="vendor-name" placeholder="ชื่อร้านค้า (เช่น ร้านป้าแจ่ม)" class="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-green-500 outline-none" required>
+                                <input type="text" id="vendor-type" placeholder="ประเภทอาหาร" class="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-green-500 outline-none" required>
+                                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg text-sm transition">เพิ่มร้านค้า</button>
+                            </form>
+                        </div>
+
+                         <div class="bg-white p-5 rounded-xl shadow-sm">
+                            <h3 class="font-semibold text-gray-700 mb-3">รายชื่อร้านค้า</h3>
+                            <ul id="vendor-list" class="space-y-2 text-sm">
+                                <!-- JS Render -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Right: Transaction -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white p-6 rounded-xl shadow-sm h-full">
+                            <h3 class="font-semibold text-gray-700 mb-4 border-b pb-2">บันทึกการซื้ออาหาร (ตัดยอดเงิน)</h3>
+                            <form onsubmit="addFoodTransaction(event)" class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">รหัสนักเรียน</label>
+                                        <input type="text" id="food-std-id" class="w-full border rounded-lg p-2 bg-gray-50 focus:bg-white transition outline-none focus:ring-2 focus:ring-teal-500" placeholder="ระบุรหัส" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">ร้านค้า</label>
+                                        <select id="food-vendor-select" class="w-full border rounded-lg p-2 bg-gray-50 focus:bg-white outline-none" required>
+                                            <option value="">เลือกร้านค้า...</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">ราคาอาหาร (บาท)</label>
+                                    <input type="number" id="food-amount" class="w-full border rounded-lg p-2 text-lg font-semibold text-teal-700 outline-none focus:ring-2 focus:ring-teal-500" placeholder="0.00" required min="1">
+                                </div>
+                                <div class="pt-2">
+                                    <button type="submit" class="w-full bg-gradient-to-r from-teal-500 to-green-600 text-white py-3 rounded-lg font-bold text-lg shadow-lg shadow-green-600/20 hover:shadow-green-600/40 transition transform hover:-translate-y-0.5">
+                                        ยืนยันการชำระเงิน
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: Materials -->
+            <div id="page-materials" class="page-section hidden">
+                <h2 class="text-2xl font-bold text-green-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="package" class="text-green-600"></i> แผนกวัสดุ (สต๊อกและการเงิน)
+                </h2>
+                
+                <!-- Material Financial Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 flex justify-between items-center">
+                        <div>
+                            <div class="text-gray-500 text-xs mb-1">รายรับสะสม (งบหนุน/ขายของเก่า)</div>
+                            <div class="text-2xl font-bold text-green-600" id="mat-total-income">฿0</div>
+                        </div>
+                        <div class="bg-green-50 p-2 rounded-lg"><i data-lucide="trending-up" class="w-6 h-6 text-green-500"></i></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500 flex justify-between items-center">
+                        <div>
+                            <div class="text-gray-500 text-xs mb-1">รายจ่ายสะสม (ซื้อวัสดุ/ซ่อมแซม)</div>
+                            <div class="text-2xl font-bold text-red-600" id="mat-total-expense">฿0</div>
+                        </div>
+                        <div class="bg-red-50 p-2 rounded-lg"><i data-lucide="trending-down" class="w-6 h-6 text-red-500"></i></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500 flex justify-between items-center">
+                        <div>
+                            <div class="text-gray-500 text-xs mb-1">งบคงเหลือสุทธิ</div>
+                            <div class="text-2xl font-bold text-purple-600" id="mat-net-balance">฿0</div>
+                        </div>
+                        <div class="bg-purple-50 p-2 rounded-lg"><i data-lucide="wallet" class="w-6 h-6 text-purple-500"></i></div>
+                    </div>
+                </div>
+
+                <!-- Action Forms Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- 1. Add New Item Type -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm h-full border-t-4 border-cyan-500">
+                        <h3 class="font-semibold text-gray-700 mb-4 border-b pb-2">1. เพิ่มรายการวัสดุใหม่</h3>
+                        <form onsubmit="addInventoryItem(event)" class="space-y-3">
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">ชื่อรายการ</label>
+                                <input type="text" id="inv-name" placeholder="เช่น โต๊ะนักเรียน, กระดาษ A4" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-cyan-500" required>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">จำนวน</label>
+                                    <input type="number" id="inv-qty" value="1" min="0" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-cyan-500" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">หน่วยนับ</label>
+                                    <input type="text" id="inv-unit" placeholder="ชิ้น, อัน" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-cyan-500" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-2 rounded-lg font-medium transition mt-2">
+                                <i data-lucide="plus-circle" class="inline w-4 h-4 mr-1"></i> เพิ่มสต๊อก
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- 2. Withdraw Item (New) -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm h-full border-t-4 border-orange-500">
+                        <h3 class="font-semibold text-gray-700 mb-4 border-b pb-2">2. เบิกของ/ตัดสต๊อก</h3>
+                        <form onsubmit="withdrawItem(event)" class="space-y-3">
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">เลือกวัสดุ</label>
+                                <select id="withdraw-select" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50" required>
+                                    <option value="">-- เลือกรายการ --</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">จำนวนที่เบิก</label>
+                                    <input type="number" id="withdraw-qty" value="1" min="1" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-600 mb-1">ผู้เบิก</label>
+                                    <input type="text" id="withdraw-by" placeholder="ชื่อครู/จนท." class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500" required>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">เหตุผล/นำไปใช้</label>
+                                <input type="text" id="withdraw-reason" placeholder="สอน ม.1, ซ่อมแซม..." class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>
+                            <button type="submit" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium transition mt-2">
+                                <i data-lucide="minus-circle" class="inline w-4 h-4 mr-1"></i> ยืนยันการเบิก
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- 3. Financial Record -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm h-full border-t-4 border-purple-500">
+                        <h3 class="font-semibold text-gray-700 mb-4 border-b pb-2 flex justify-between">
+                            <span>3. บันทึกรายรับ-รายจ่าย</span>
+                            <span class="text-xs font-normal bg-gray-100 px-2 py-1 rounded text-gray-500" id="mat-balance-display">งบคงเหลือ: ฿0</span>
+                        </h3>
+                        <form onsubmit="addMaterialFinancialTx(event)" class="space-y-3">
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">ประเภทธุรกรรม</label>
+                                <select id="mat-fin-type" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50">
+                                    <option value="expense">รายจ่าย (ซื้อของ/ซ่อมแซม)</option>
+                                    <option value="income">รายรับ (ขายของเก่า/งบหนุน)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">จำนวนเงิน (บาท)</label>
+                                <input type="number" id="mat-fin-amount" placeholder="0.00" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-purple-500 font-bold text-purple-700" required min="1">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1">รายละเอียด</label>
+                                <input type="text" id="mat-fin-desc" placeholder="ระบุรายละเอียด..." class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-purple-500" required>
+                            </div>
+                            <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition shadow-lg shadow-purple-200 mt-2">
+                                บันทึกการเงิน
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Inventory List (Existing) -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+                    <div class="p-4 bg-gray-50 border-b font-semibold text-gray-700 flex justify-between items-center">
+                        <span>รายการวัสดุทั้งหมดในคลัง</span>
+                        <span class="text-xs font-normal text-gray-500 bg-white px-2 py-1 rounded border">เช็คสต๊อกล่าสุด</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-cyan-50 text-cyan-800">
+                                <tr>
+                                    <th class="p-3">ชื่อรายการ</th>
+                                    <th class="p-3 text-center">จำนวนคงเหลือ</th>
+                                    <th class="p-3 text-center">หน่วยนับ</th>
+                                    <th class="p-3 text-center">จัดการด่วน</th>
+                                    <th class="p-3 text-center">ลบ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-body" class="divide-y divide-gray-100">
+                                <!-- JS Render -->
+                            </tbody>
+                        </table>
+                    </div>
+                     <div id="inventory-empty-state" class="hidden p-8 text-center text-gray-400">
+                        <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                        <p>ยังไม่มีรายการวัสดุในระบบ</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: Reports -->
+            <div id="page-reports" class="page-section hidden">
+                <h2 class="text-2xl font-bold text-green-800 mb-6 flex items-center gap-2">
+                    <i data-lucide="file-bar-chart" class="text-green-600"></i> รายงานการเงินรวม
+                </h2>
+                
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+                    <div class="p-4 bg-gray-50 border-b flex justify-between items-center">
+                        <h3 class="font-semibold text-gray-700">บันทึกธุรกรรมทั้งหมด (Statement)</h3>
+                        <button onclick="renderReportTable()" class="text-sm text-green-600 hover:underline">รีเฟรชข้อมูล</button>
+                    </div>
+                    <div class="overflow-x-auto max-h-[600px]">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-100 text-gray-600 sticky top-0">
+                                <tr>
+                                    <th class="p-3">วันที่/เวลา</th>
+                                    <th class="p-3">รหัสนักเรียน/อ้างอิง</th>
+                                    <th class="p-3">แผนก</th>
+                                    <th class="p-3">รายละเอียด</th>
+                                    <th class="p-3 text-right">ประเภท</th>
+                                    <th class="p-3 text-right">จำนวนเงิน</th>
+                                    <th class="p-3 text-center no-print">ใบเสร็จ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-table-body" class="divide-y divide-gray-100">
+                                <!-- JS Render -->
+                            </tbody>
+                            <tfoot class="bg-gray-50 font-bold text-gray-700 sticky bottom-0 shadow-inner">
+                                <tr>
+                                    <td colspan="5" class="p-3 text-right">กำไร/เงินคงเหลือสุทธิ (Net Balance)</td>
+                                    <td class="p-3 text-right text-lg" id="report-grand-total">฿0.00</td>
+                                    <td class="no-print"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Receipt Print Area (Hidden by default, shown in print) -->
+    <div id="receipt-print-area" class="hidden">
+        <div class="border-2 border-gray-800 p-8 max-w-2xl mx-auto">
+            <div class="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
+                <div class="flex items-center gap-4">
+                    <div class="bg-green-800 text-white p-3 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10v6M2 16h20M7.7 8.6c-2.3-2.1-1.4-5.6 1-5.6 3.6 0 2.4 5.6 1.3 5.6M14 8.6c-2.3-2.1-1.4-5.6 1-5.6 3.6 0 2.4 5.6 1.3 5.6"/></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">โรงเรียนพัฒนาบุตร</h1>
+                        <p class="text-sm">ใบเสร็จรับเงิน / Receipt</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-mono text-sm">วันที่: <span id="rcpt-date"></span></p>
+                    <p class="font-mono text-sm">เลขที่: <span id="rcpt-id"></span></p>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <p><strong>ได้รับเงินจาก:</strong> <span id="rcpt-payer"></span></p>
+                <p><strong>ประเภท:</strong> <span id="rcpt-type"></span></p>
+            </div>
+
+            <table class="w-full mb-8 border border-gray-800">
+                <thead class="bg-gray-100 border-b border-gray-800">
+                    <tr>
+                        <th class="p-2 text-left border-r border-gray-800">รายการ</th>
+                        <th class="p-2 text-right">จำนวนเงิน (บาท)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="p-4 border-r border-gray-800" id="rcpt-desc"></td>
+                        <td class="p-4 text-right font-bold" id="rcpt-amount"></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="flex justify-between items-end mt-16">
+                <div class="text-center">
+                    <div class="border-b border-black w-32 mb-2"></div>
+                    <p class="text-sm">ผู้รับเงิน</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-sm italic text-gray-500">ขอบคุณที่ใช้บริการ</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Payment -->
+    <div id="paymentModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50 backdrop-blur-sm no-print">
+        <div class="bg-white rounded-xl p-6 w-96 shadow-2xl animate-fade-in-up">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">บันทึกการจ่ายค่าเทอม</h3>
+            <p class="text-gray-600 text-sm mb-4">นักเรียน: <span id="modal-std-name" class="font-semibold"></span></p>
+            <div class="mb-4">
+                <label class="block text-sm mb-1">จำนวนเงินที่จ่าย (บาท)</label>
+                <input type="number" id="modal-pay-amount" class="w-full border border-green-300 rounded-lg p-2 text-xl font-bold text-green-700 focus:ring-2 focus:ring-green-500 outline-none">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="closePaymentModal()" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">ยกเลิก</button>
+                <button onclick="confirmTuitionPayment()" class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 shadow-lg">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Initialization ---
+        lucide.createIcons();
+        
+        // Mock Data & LocalStorage Logic
+        const TUITION_FEE = 15000;
+        let db = {
+            students: [],
+            vendors: [],
+            transactions: [],
+            inventory: [] // New structure for inventory
+        };
+
+        function loadData() {
+            const saved = localStorage.getItem('pattanaButData');
+            if (saved) {
+                db = JSON.parse(saved);
+                // Migration check: if inventory doesn't exist yet
+                if (!db.inventory) db.inventory = [];
+            } else {
+                // Initial Dummy Data
+                db.students = [
+                    { id: "66001", name: "เด็กชาย มานะ ใจดี", class: "ม.1", paid: 5000 },
+                    { id: "66002", name: "เด็กหญิง มานี มีตา", class: "ม.2", paid: 15000 },
+                    { id: "66003", name: "เด็กชาย ปิติ รักเรียน", class: "ม.4", paid: 0 }
+                ];
+                db.vendors = [
+                    { id: 1, name: "ป้าแจ่ม ข้าวแกง", type: "อาหารคาว" },
+                    { id: 2, name: "ลุงแดง น้ำปั่น", type: "เครื่องดื่ม" }
+                ];
+                // Initial Inventory
+                db.inventory = [
+                    { id: 1, name: 'โต๊ะนักเรียน', qty: 120, unit: 'ตัว' },
+                    { id: 2, name: 'เก้าอี้', qty: 120, unit: 'ตัว' },
+                    { id: 3, name: 'กระดาษ A4', qty: 45, unit: 'รีม' },
+                    { id: 4, name: 'ปากกาไวท์บอร์ด', qty: 20, unit: 'ด้าม' }
+                ];
+                saveData();
+            }
+            updateUI();
+        }
+
+        function saveData() {
+            localStorage.setItem('pattanaButData', JSON.stringify(db));
+            updateUI();
+        }
+
+        function resetSystem() {
+            if(confirm('คำเตือน: ข้อมูลทั้งหมดจะถูกลบถาวร! ต้องการรีเซ็ตระบบเริ่มต้นใหม่ใช่หรือไม่?')) {
+                localStorage.removeItem('pattanaButData');
+                location.reload();
+            }
+        }
+
+        // --- Backup & Restore Logic (New) ---
+        function backupData() {
+            const dataStr = JSON.stringify(db);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const date = new Date().toISOString().slice(0, 10);
+            const exportFileDefaultName = `pattana_but_backup_${date}.json`;
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        function restoreData(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    const parsedData = JSON.parse(content);
+                    
+                    // Simple Validation to check if it's the right format
+                    if (parsedData.students && parsedData.transactions && parsedData.inventory) {
+                        if(confirm('ต้องการกู้คืนข้อมูลจากไฟล์นี้หรือไม่? ข้อมูลปัจจุบันจะถูกทับทั้งหมด')) {
+                            db = parsedData;
+                            saveData();
+                            alert('กู้คืนข้อมูลสำเร็จ ระบบจะรีเฟรช');
+                            location.reload();
+                        }
+                    } else {
+                        alert('รูปแบบไฟล์ไม่ถูกต้อง หรือไม่ใช่ไฟล์ Backup ของระบบนี้');
+                    }
+                } catch (err) {
+                    alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + err);
+                }
+                // Reset input to allow selecting same file again if needed
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // --- Navigation ---
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(el => {
+                el.classList.remove('bg-white/20', 'font-medium', 'text-white');
+                el.classList.add('text-green-100');
+            });
+
+            // Show selected
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+            
+            // Highlight Nav
+            const activeBtn = document.querySelector(`button[onclick="showPage('${pageId}')"]`);
+            if(activeBtn) {
+                activeBtn.classList.add('bg-white/20', 'font-medium', 'text-white');
+                activeBtn.classList.remove('text-green-100');
+            }
+
+            // Refresh Data for specific pages
+            if (pageId === 'tuition') renderTuitionTable();
+            if (pageId === 'food') renderVendorOptions();
+            if (pageId === 'materials') renderInventoryTable(); // Changed function
+            if (pageId === 'reports') renderReportTable();
+            if (pageId === 'dashboard') renderDashboardCharts();
+            
+            // Mobile sidebar auto-close logic could go here
+        }
+
+        // --- Students Logic ---
+        function addStudent(e) {
+            e.preventDefault();
+            const id = document.getElementById('std-id').value.trim();
+            const name = document.getElementById('std-name').value.trim();
+            const cls = document.getElementById('std-class').value;
+
+            if (db.students.some(s => s.id === id)) {
+                alert('รหัสนักเรียนนี้มีอยู่ในระบบแล้ว กรุณาใช้รหัสอื่น');
+                return;
+            }
+
+            db.students.push({ id, name, class: cls, paid: 0 });
+            saveData();
+            document.getElementById('std-id').value = '';
+            document.getElementById('std-name').value = '';
+            alert('เพิ่มนักเรียนเรียบร้อย');
+            renderStudentList();
+        }
+
+        // --- CSV Import Logic ---
+        function downloadCSVTemplate() {
+            const csvContent = "\uFEFFรหัสนักเรียน,ชื่อ-นามสกุล,ระดับชั้น\n66004,เด็กชาย ตัวอย่างcsv,ม.1\n66005,เด็กหญิง ตัวอย่างcsv,ม.2";
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "student_template.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function handleCSVUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                let successCount = 0;
+                let failCount = 0;
+
+                // Start loop from index 1 to skip header row
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const parts = line.split(',');
+                    if (parts.length >= 3) {
+                        const id = parts[0].trim();
+                        const name = parts[1].trim();
+                        const cls = parts[2].trim();
+
+                        // Check duplicate
+                        if (!db.students.some(s => s.id === id)) {
+                            db.students.push({ id, name, class: cls, paid: 0 });
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    }
+                }
+
+                saveData();
+                renderStudentList();
+                // Reset input
+                input.value = ''; 
+                alert(`นำเข้าสำเร็จ: ${successCount} คน\nซ้ำ/ข้าม: ${failCount} คน`);
+            };
+            reader.readAsText(file);
+        }
+
+        function renderStudentList() {
+            const tbody = document.getElementById('student-list-body');
+            tbody.innerHTML = db.students.map(s => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 border-b font-medium text-green-700">${s.id}</td>
+                    <td class="p-4 border-b">${s.name}</td>
+                    <td class="p-4 border-b text-gray-500">${s.class}</td>
+                    <td class="p-4 border-b text-center">
+                        <span class="px-2 py-1 rounded-full text-xs ${s.paid >= TUITION_FEE ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                            ${s.paid >= TUITION_FEE ? 'ปกติ' : 'ค้างชำระ'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // --- Tuition Logic ---
+        let currentPayStudentId = null;
+
+        function renderTuitionTable() {
+            const searchTerm = document.getElementById('tuition-search') ? document.getElementById('tuition-search').value.trim().toLowerCase() : '';
+            const tbody = document.getElementById('tuition-table-body');
+            
+            // Filter students based on search term
+            const filteredStudents = db.students.filter(s => 
+                s.name.toLowerCase().includes(searchTerm) || 
+                s.id.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredStudents.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-400">ไม่พบข้อมูลนักเรียนที่ค้นหา</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filteredStudents.map(s => {
+                const remaining = TUITION_FEE - s.paid;
+                const statusClass = remaining <= 0 ? 'text-green-600 font-bold' : 'text-red-500';
+                return `
+                <tr class="hover:bg-gray-50">
+                    <td class="p-3 border-b border-r text-gray-600">${s.id}</td>
+                    <td class="p-3 border-b border-r">${s.name}</td>
+                    <td class="p-3 border-b border-r text-right text-gray-500">${TUITION_FEE.toLocaleString()}</td>
+                    <td class="p-3 border-b border-r text-right font-medium">${s.paid.toLocaleString()}</td>
+                    <td class="p-3 border-b border-r text-right ${statusClass}">${Math.max(0, remaining).toLocaleString()}</td>
+                    <td class="p-3 border-b text-center">
+                        ${remaining > 0 ? 
+                        `<button onclick="openPaymentModal('${s.id}')" class="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-xs font-medium transition">ชำระเงิน</button>` : 
+                        `<span class="text-green-600 text-xs flex justify-center items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> ครบแล้ว</span>`}
+                    </td>
+                </tr>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function openPaymentModal(id) {
+            currentPayStudentId = id;
+            const student = db.students.find(s => s.id === id);
+            document.getElementById('modal-std-name').innerText = student.name;
+            document.getElementById('modal-pay-amount').value = TUITION_FEE - student.paid;
+            document.getElementById('paymentModal').classList.remove('hidden');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.add('hidden');
+            currentPayStudentId = null;
+        }
+
+        function confirmTuitionPayment() {
+            const amount = parseFloat(document.getElementById('modal-pay-amount').value);
+            if (!amount || amount <= 0) return alert('กรุณาระบุจำนวนเงินที่ถูกต้อง');
+
+            const studentIndex = db.students.findIndex(s => s.id === currentPayStudentId);
+            if (studentIndex > -1) {
+                db.students[studentIndex].paid += amount;
+                
+                // Record Transaction
+                const newTx = {
+                    date: new Date().toISOString(),
+                    studentId: currentPayStudentId,
+                    dept: 'Tuition',
+                    desc: 'ชำระค่าเทอม',
+                    amount: amount,
+                    id: Date.now() // Add unique ID for receipt
+                };
+                db.transactions.push(newTx);
+
+                saveData();
+                closePaymentModal();
+                renderTuitionTable();
+                
+                if(confirm('บันทึกสำเร็จ! ต้องการพิมพ์ใบเสร็จเลยหรือไม่?')) {
+                    printReceipt(newTx);
+                }
+            }
+        }
+
+        // --- Food Logic ---
+        function addVendor(e) {
+            e.preventDefault();
+            const name = document.getElementById('vendor-name').value;
+            const type = document.getElementById('vendor-type').value;
+            db.vendors.push({ id: Date.now(), name, type });
+            saveData();
+            renderVendorOptions();
+            document.getElementById('vendor-name').value = '';
+            document.getElementById('vendor-type').value = '';
+        }
+
+        function renderVendorOptions() {
+            const list = document.getElementById('vendor-list');
+            const select = document.getElementById('food-vendor-select');
+            const rentSelect = document.getElementById('rent-vendor-select');
+            
+            // List
+            list.innerHTML = db.vendors.map(v => `
+                <li class="flex justify-between items-center border-b pb-2 last:border-0">
+                    <span>${v.name}</span>
+                    <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">${v.type}</span>
+                </li>
+            `).join('');
+
+            // Select for Food Purchase
+            const optionsHtml = '<option value="">เลือกร้านค้า...</option>' + db.vendors.map(v => `
+                <option value="${v.name}">${v.name}</option>
+            `).join('');
+            
+            select.innerHTML = optionsHtml;
+            
+            // Select for Rental (New)
+            if(rentSelect) rentSelect.innerHTML = optionsHtml;
+        }
+
+        function addRentalTransaction(e) {
+            e.preventDefault();
+            const vendor = document.getElementById('rent-vendor-select').value;
+            const month = document.getElementById('rent-month').value; // YYYY-MM
+            const amount = parseFloat(document.getElementById('rent-amount').value);
+
+            if (!amount || amount <= 0) return alert('กรุณาระบุจำนวนเงิน');
+
+            const newTx = {
+                date: new Date().toISOString(),
+                studentId: 'VENDOR', // Special ID for vendor
+                dept: 'Rent',
+                desc: `ค่าเช่าร้าน ${vendor} (เดือน ${month})`,
+                amount: amount,
+                id: Date.now()
+            };
+
+            db.transactions.push(newTx);
+            saveData();
+            alert('บันทึกค่าเช่าเรียบร้อย');
+            document.getElementById('rent-amount').value = '';
+        }
+
+        function addFoodTransaction(e) {
+            e.preventDefault();
+            const stdId = document.getElementById('food-std-id').value;
+            const vendor = document.getElementById('food-vendor-select').value;
+            const amount = parseFloat(document.getElementById('food-amount').value);
+
+            if (!db.students.some(s => s.id === stdId)) return alert('ไม่พบรหัสนักเรียนในระบบ');
+
+            const newTx = {
+                date: new Date().toISOString(),
+                studentId: stdId,
+                dept: 'Food',
+                desc: `ซื้ออาหารร้าน ${vendor}`,
+                amount: amount,
+                id: Date.now()
+            };
+
+            db.transactions.push(newTx);
+            saveData();
+            alert('บันทึกรายการอาหารสำเร็จ');
+            document.getElementById('food-amount').value = '';
+        }
+
+        // --- Materials & Financial Logic ---
+        function addMaterialFinancialTx(e) {
+            e.preventDefault();
+            const type = document.getElementById('mat-fin-type').value; // 'income' or 'expense'
+            const amount = parseFloat(document.getElementById('mat-fin-amount').value);
+            const desc = document.getElementById('mat-fin-desc').value;
+
+            if (!amount || amount <= 0) return alert('กรุณาระบุจำนวนเงิน');
+
+            const newTx = {
+                date: new Date().toISOString(),
+                studentId: 'ADMIN', 
+                dept: 'Material',
+                type: type, // Store type: 'income' or 'expense'
+                desc: desc,
+                amount: amount,
+                id: Date.now()
+            };
+
+            db.transactions.push(newTx);
+            saveData();
+            alert('บันทึกรายการสำเร็จ');
+            
+            // Reset Form
+            document.getElementById('mat-fin-amount').value = '';
+            document.getElementById('mat-fin-desc').value = '';
+            
+            renderMaterialBalance(); 
+        }
+
+        // --- New Withdrawal Logic ---
+        function withdrawItem(e) {
+            e.preventDefault();
+            const itemId = parseInt(document.getElementById('withdraw-select').value);
+            const qty = parseInt(document.getElementById('withdraw-qty').value);
+            const by = document.getElementById('withdraw-by').value;
+            const reason = document.getElementById('withdraw-reason').value;
+
+            if(!itemId || isNaN(itemId)) return alert('กรุณาเลือกรายการวัสดุ');
+            
+            const item = db.inventory.find(i => i.id === itemId);
+            if (!item) return alert('ไม่พบรายการวัสดุ');
+            if (item.qty < qty) return alert(`จำนวนของไม่พอ (คงเหลือ: ${item.qty} ${item.unit})`);
+
+            // Update Stock
+            item.qty -= qty;
+
+            // Record Transaction (Non-financial, but keeps history)
+            db.transactions.push({
+                date: new Date().toISOString(),
+                studentId: by, 
+                dept: 'Material',
+                type: 'withdraw', // Special type for withdrawal
+                desc: `เบิก ${item.name} (${reason})`,
+                amount: 0, // No financial impact
+                id: Date.now()
+            });
+
+            saveData();
+            renderInventoryTable();
+            alert('บันทึกการเบิกของเรียบร้อย');
+            
+            // Reset Form
+            document.getElementById('withdraw-select').value = '';
+            document.getElementById('withdraw-qty').value = '1';
+            document.getElementById('withdraw-by').value = '';
+            document.getElementById('withdraw-reason').value = '';
+        }
+
+        function renderInventoryTable() {
+            const tbody = document.getElementById('inventory-table-body');
+            const emptyState = document.getElementById('inventory-empty-state');
+            const withdrawSelect = document.getElementById('withdraw-select');
+
+            // Populate Withdrawal Dropdown
+            if(withdrawSelect) {
+                withdrawSelect.innerHTML = '<option value="">-- เลือกรายการ --</option>' + 
+                    db.inventory.map(i => `<option value="${i.id}">${i.name} (เหลือ ${i.qty})</option>`).join('');
+            }
+
+            if (db.inventory.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                tbody.innerHTML = db.inventory.map(item => `
+                    <tr class="hover:bg-gray-50 transition group">
+                        <td class="p-3 font-medium text-gray-700">${item.name}</td>
+                        <td class="p-3 text-center">
+                            <span class="text-lg font-bold ${item.qty < 10 ? 'text-red-500' : 'text-cyan-700'}">${item.qty}</span>
+                        </td>
+                        <td class="p-3 text-center text-gray-500 text-sm">${item.unit}</td>
+                        <td class="p-3 text-center">
+                            <div class="flex justify-center items-center gap-1">
+                                <button onclick="updateStock(${item.id}, -1)" class="w-8 h-8 rounded-full bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center transition" title="ลดจำนวนด่วน">
+                                    <i data-lucide="minus" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="updateStock(${item.id}, 1)" class="w-8 h-8 rounded-full bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition" title="เพิ่มจำนวนด่วน">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="p-3 text-center">
+                            <button onclick="deleteInventoryItem(${item.id})" class="text-gray-400 hover:text-red-500 transition opacity-0 group-hover:opacity-100">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                lucide.createIcons();
+            }
+            renderMaterialBalance();
+        }
+
+        // --- Missing Function Added Here ---
+        function renderMaterialBalance() {
+             const matTxs = db.transactions.filter(t => t.dept === 'Material');
+             let income = 0;
+             let expense = 0;
+             
+             matTxs.forEach(t => {
+                 const isExpense = t.type === 'expense';
+                 if(isExpense) expense += t.amount;
+                 else if(t.type === 'income') income += t.amount; 
+                 // Note: Withdraw type has amount 0, so it doesn't affect calculation
+             });
+             
+             const balance = income - expense;
+             
+             // Update Badge
+             const displayEl = document.getElementById('mat-balance-display');
+             if(displayEl) {
+                 displayEl.innerText = `งบคงเหลือ: ฿${balance.toLocaleString()}`;
+                 displayEl.className = `text-xs font-normal px-2 py-1 rounded text-white ${balance >= 0 ? 'bg-green-500' : 'bg-red-500'}`;
+             }
+
+             // Update Summary Cards
+             const incEl = document.getElementById('mat-total-income');
+             const expEl = document.getElementById('mat-total-expense');
+             const netEl = document.getElementById('mat-net-balance');
+
+             if(incEl) incEl.innerText = '฿' + income.toLocaleString();
+             if(expEl) expEl.innerText = '฿' + expense.toLocaleString();
+             if(netEl) {
+                 netEl.innerText = (balance >= 0 ? '+' : '') + '฿' + balance.toLocaleString();
+                 netEl.className = `text-2xl font-bold ${balance >= 0 ? 'text-purple-600' : 'text-red-600'}`;
+             }
+        }
+        
+        // --- Print Receipt Logic (New) ---
+        function printReceipt(tx) {
+            // Populate Data
+            document.getElementById('rcpt-date').innerText = new Date(tx.date).toLocaleDateString('th-TH');
+            document.getElementById('rcpt-id').innerText = tx.id || Date.now();
+            document.getElementById('rcpt-payer').innerText = tx.studentId;
+            document.getElementById('rcpt-type').innerText = tx.dept;
+            document.getElementById('rcpt-desc').innerText = tx.desc;
+            document.getElementById('rcpt-amount').innerText = '฿' + tx.amount.toLocaleString();
+
+            // Trigger Print
+            window.print();
+        }
+
+        function findAndPrintTx(dateStr) {
+            // Find Tx by timestamp string comparison (Simple way for button click)
+            const tx = db.transactions.find(t => t.date === dateStr);
+            if(tx) printReceipt(tx);
+        }
+        
+        function renderReportTable() {
+            const tbody = document.getElementById('report-table-body');
+            const sortedTx = [...db.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+            let grandTotal = 0;
+
+            tbody.innerHTML = sortedTx.map(tx => {
+                // Check type: 'expense' subtracts, others add
+                const isExpense = tx.type === 'expense';
+                const amount = tx.amount;
+                
+                if (isExpense) grandTotal -= amount;
+                else grandTotal += amount;
+
+                const date = new Date(tx.date).toLocaleString('th-TH');
+                
+                let deptBadge = '';
+                if(tx.dept === 'Tuition') deptBadge = '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs">ค่าเทอม</span>';
+                if(tx.dept === 'Food') deptBadge = '<span class="bg-teal-100 text-teal-700 px-2 py-1 rounded text-xs">อาหาร</span>';
+                if(tx.dept === 'Rent') deptBadge = '<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs">ค่าเช่า</span>';
+                if(tx.dept === 'Material') deptBadge = '<span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs">วัสดุ</span>';
+
+                const amountClass = isExpense ? 'text-red-600' : 'text-green-600';
+                const sign = isExpense ? '-' : '+';
+                const typeLabel = isExpense ? 'รายจ่าย' : 'รายรับ';
+
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 text-gray-500 text-xs">${date}</td>
+                        <td class="p-3 font-mono text-xs text-gray-400">${tx.studentId}</td>
+                        <td class="p-3">${deptBadge}</td>
+                        <td class="p-3 text-sm">${tx.desc}</td>
+                        <td class="p-3 text-right text-xs text-gray-500">${typeLabel}</td>
+                        <td class="p-3 text-right font-bold ${amountClass}">${sign}฿${amount.toLocaleString()}</td>
+                        <td class="p-3 text-center no-print">
+                            <button onclick="findAndPrintTx('${tx.date}')" class="text-gray-400 hover:text-gray-700" title="พิมพ์ใบเสร็จ">
+                                <i data-lucide="printer" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            const totalEl = document.getElementById('report-grand-total');
+            totalEl.innerText = `฿${grandTotal.toLocaleString()}`;
+            totalEl.className = `p-3 text-right text-lg font-bold ${grandTotal >= 0 ? 'text-green-700' : 'text-red-600'}`;
+            lucide.createIcons();
+        }
+        
+        function addInventoryItem(e) {
+            e.preventDefault();
+            const name = document.getElementById('inv-name').value.trim();
+            const qty = parseInt(document.getElementById('inv-qty').value);
+            const unit = document.getElementById('inv-unit').value.trim();
+
+            if (!name || !unit) return;
+
+            db.inventory.push({
+                id: Date.now(),
+                name,
+                qty,
+                unit
+            });
+            saveData();
+            
+            // Reset form
+            document.getElementById('inv-name').value = '';
+            document.getElementById('inv-qty').value = '1';
+            document.getElementById('inv-unit').value = '';
+            
+            renderInventoryTable();
+        }
+
+        function updateStock(id, change) {
+            const item = db.inventory.find(i => i.id === id);
+            if (item) {
+                const newQty = item.qty + change;
+                if (newQty < 0) return alert('จำนวนสินค้าไม่สามารถต่ำกว่า 0 ได้');
+                item.qty = newQty;
+                saveData();
+                renderInventoryTable();
+            }
+        }
+
+        function deleteInventoryItem(id) {
+            if(confirm('ต้องการลบรายการนี้ออกจากระบบใช่หรือไม่?')) {
+                db.inventory = db.inventory.filter(i => i.id !== id);
+                saveData();
+                renderInventoryTable();
+            }
+        }
+
+        // --- Reports & Dashboard ---
+        // Note: renderReportTable is already defined above
+
+        let myChart = null;
+
+        function renderDashboardCharts() {
+            // Calculate Totals with Expense Logic
+            let tuitionTotal = 0;
+            let foodRentTotal = 0;
+            let materialNet = 0;
+
+            db.transactions.forEach(t => {
+                const amt = t.type === 'expense' ? -t.amount : t.amount;
+                
+                if (t.dept === 'Tuition') tuitionTotal += amt;
+                else if (t.dept === 'Food' || t.dept === 'Rent') foodRentTotal += amt;
+                else if (t.dept === 'Material') materialNet += amt;
+            });
+
+            document.getElementById('dash-student-count').innerText = db.students.length;
+            document.getElementById('dash-tuition-total').innerText = '฿' + tuitionTotal.toLocaleString();
+            document.getElementById('dash-food-total').innerText = '฿' + foodRentTotal.toLocaleString();
+            
+            // Card 4: Material Net Balance (Updated from Inventory Count)
+            const matBalEl = document.getElementById('dash-material-balance');
+            if(matBalEl) {
+                matBalEl.innerText = (materialNet >= 0 ? '+' : '') + '฿' + materialNet.toLocaleString();
+                // Change color to red if negative
+                matBalEl.className = `text-3xl font-bold ${materialNet >= 0 ? 'text-purple-600' : 'text-red-600'}`;
+            }
+
+            // Recent Tx
+            const recent = [...db.transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+            document.getElementById('dash-recent-tx').innerHTML = recent.map(tx => {
+                const isExpense = tx.type === 'expense';
+                return `
+                <tr>
+                    <td class="p-3 text-sm text-gray-600">${tx.desc}</td>
+                    <td class="p-3"><span class="text-xs bg-gray-100 px-2 py-1 rounded">${tx.dept}</span></td>
+                    <td class="p-3 text-right font-medium ${isExpense ? 'text-red-600' : 'text-green-700'}">
+                        ${isExpense ? '-' : '+'}${tx.amount.toLocaleString()}
+                    </td>
+                </tr>
+                `;
+            }).join('');
+
+            // Chart (Only Positive Income for visualization, or Net?)
+            // Let's show Net positive contributions to avoid negative pie slices
+            const ctx = document.getElementById('incomeChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['ค่าเทอม', 'อาหาร/เช่า', 'วัสดุ (สุทธิ)'],
+                    datasets: [{
+                        data: [
+                            Math.max(0, tuitionTotal), 
+                            Math.max(0, foodRentTotal), 
+                            Math.max(0, materialNet)
+                        ],
+                        backgroundColor: [
+                            '#10b981', // emerald
+                            '#14b8a6', // teal
+                            '#a855f7'  // purple (Material)
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function updateUI() {
+            renderStudentList();
+            renderTuitionTable();
+            renderDashboardCharts();
+        }
+
+        // Start
+        loadData();
+        showPage('dashboard');
+    </script>
+</body>
+</html>
